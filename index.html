@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tuḷu Script Transliterator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  @font-face {
+    font-family: 'Mallige';
+    src: url('tulu.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --ink: #1a1208;
+    --parchment: #f5edd8;
+    --parchment-dark: #ede0c0;
+    --parchment-mid: #f0e6cc;
+    --copper: #8b5e2e;
+    --copper-light: #b87d3e;
+    --copper-muted: #c49a65;
+    --rust: #7a3b1e;
+    --gold: #c8993a;
+    --gold-light: #e6b84a;
+    --shadow: rgba(26,18,8,0.15);
+    --shadow-deep: rgba(26,18,8,0.3);
+    --border: rgba(139,94,46,0.25);
+    --border-strong: rgba(139,94,46,0.5);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--parchment);
+    color: var(--ink);
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, rgba(200,153,58,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(122,59,30,0.06) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%238b5e2e' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* HEADER */
+  header {
+    text-align: center;
+    padding: 3rem 2rem 2rem;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  header::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--copper), var(--gold), var(--copper), transparent);
+  }
+
+  .title-tulu {
+    font-size: 2.2rem;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    color: var(--copper);
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+
+  .title-main {
+    font-size: 3.5rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .title-sub {
+    font-size: 1.1rem;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--copper-muted);
+    letter-spacing: 0.05em;
+  }
+
+  .om-symbol {
+    font-size: 1.6rem;
+    color: var(--gold);
+    margin: 0 0.5rem;
+    opacity: 0.7;
+  }
+
+  /* DIRECTION SELECTOR */
+  .direction-panel {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 2rem 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .dir-btn {
+    background: var(--parchment-mid);
+    border: 1px solid var(--border);
+    color: var(--copper);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.55rem 1.2rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+
+  .dir-btn:hover {
+    background: var(--parchment-dark);
+    border-color: var(--copper);
+    color: var(--rust);
+  }
+
+  .dir-btn.active {
+    background: var(--copper);
+    border-color: var(--copper);
+    color: var(--parchment);
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+
+  /* MAIN EDITOR */
+  .editor-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: stretch;
+    flex: 1;
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--copper);
+    padding: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-label-script {
+    font-style: italic;
+    font-size: 0.9rem;
+    color: var(--copper-muted);
+    letter-spacing: 0.04em;
+    text-transform: none;
+    font-weight: 400;
+  }
+
+  .text-area-wrap {
+    flex: 1;
+    position: relative;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    background: rgba(245,237,216,0.6);
+    box-shadow: inset 0 2px 8px var(--shadow), 0 1px 3px var(--shadow);
+    overflow: hidden;
+    min-height: 260px;
+  }
+
+  .text-area-wrap:focus-within {
+    border-color: var(--copper);
+    box-shadow: inset 0 2px 8px var(--shadow), 0 0 0 2px rgba(139,94,46,0.15);
+  }
+
+  textarea {
+    width: 100%;
+    height: 100%;
+    min-height: 260px;
+    border: none;
+    background: transparent;
+    padding: 1.2rem 1.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 300;
+    color: var(--ink);
+    resize: none;
+    outline: none;
+    line-height: 1.8;
+  }
+
+  textarea::placeholder {
+    color: var(--copper-muted);
+    opacity: 0.6;
+    font-style: italic;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+  }
+
+  .output-area {
+    width: 100%;
+    min-height: 260px;
+    padding: 1.2rem 1.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 300;
+    color: var(--rust);
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+    cursor: text;
+    user-select: text;
+  }
+
+  .output-area.large-script {
+    font-size: 1.3rem;
+    font-family: 'Noto Serif Devanagari', 'Noto Serif', serif;
+  }
+
+  /* TULU (MALLIGE) FONT */
+  textarea.tulu-font,
+  .output-area.tulu-font {
+    font-family: 'Mallige', 'JetBrains Mono', monospace;
+    font-size: 1.35rem;
+    line-height: 2;
+    font-kerning: normal;
+    font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'clig' 1, 'mark' 1, 'mkmk' 1, 'dist' 1, 'abvm' 1, 'blwm' 1;
+    -webkit-font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'clig' 1, 'mark' 1, 'mkmk' 1, 'dist' 1, 'abvm' 1, 'blwm' 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* CENTER ARROW */
+  .arrow-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem 0;
+  }
+
+  .arrow-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .arrow-svg {
+    width: 32px;
+    height: 32px;
+    color: var(--copper-muted);
+  }
+
+  .swap-btn {
+    background: var(--parchment-mid);
+    border: 1px solid var(--border);
+    color: var(--copper);
+    font-size: 0.75rem;
+    font-family: 'Cormorant Garamond', serif;
+    letter-spacing: 0.1em;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .swap-btn:hover {
+    background: var(--copper);
+    color: var(--parchment);
+  }
+
+  /* COPY BUTTON */
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--copper-muted);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--copper);
+    color: var(--copper);
+  }
+
+  .copy-btn.copied {
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+
+  /* CHAR COUNT */
+  .char-count {
+    font-size: 0.75rem;
+    color: var(--copper-muted);
+    padding: 0.4rem 0.2rem 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+    text-align: right;
+  }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
+    margin: 2rem 0 1.5rem;
+  }
+
+  /* REFERENCE PANEL */
+  .reference-section {
+    padding: 0 0 3rem;
+  }
+
+  .reference-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .reference-toggle h3 {
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--copper);
+  }
+
+  .toggle-arrow {
+    color: var(--copper-muted);
+    transition: transform 0.3s;
+    font-size: 0.8rem;
+  }
+
+  .reference-toggle.open .toggle-arrow {
+    transform: rotate(180deg);
+  }
+
+  .reference-grid {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .reference-grid.show {
+    display: grid;
+  }
+
+  .ref-card {
+    background: rgba(245,237,216,0.5);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+  }
+
+  .ref-card h4 {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--copper);
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  .ref-table td {
+    padding: 0.2rem 0.5rem 0.2rem 0;
+    vertical-align: middle;
+  }
+
+  .ref-table td:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--rust);
+    font-weight: 500;
+    min-width: 60px;
+  }
+
+  .ref-table td:nth-child(2) {
+    color: var(--ink);
+    font-style: italic;
+    min-width: 50px;
+  }
+
+  .ref-table td:nth-child(3) {
+    color: var(--copper-muted);
+    font-size: 0.8rem;
+  }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    font-style: italic;
+    color: var(--copper-muted);
+    font-weight: 300;
+  }
+
+  /* ZWNJ CHECKBOX PANEL */
+  .zwnj-panel {
+    display: flex;
+    justify-content: center;
+    padding: 0.75rem 2rem 0;
+  }
+
+  .zwnj-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .zwnj-check-wrap {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .zwnj-check-wrap input[type="checkbox"] {
+    opacity: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+    z-index: 1;
+  }
+
+  .zwnj-checkmark {
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 2px;
+    background: var(--parchment-mid);
+    transition: all 0.15s ease;
+  }
+
+  .zwnj-check-wrap input:checked ~ .zwnj-checkmark {
+    background: var(--copper);
+    border-color: var(--copper);
+  }
+
+  .zwnj-check-wrap input:checked ~ .zwnj-checkmark::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: 1.5px solid var(--parchment);
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+  }
+
+  .zwnj-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.92rem;
+    font-weight: 400;
+    color: var(--copper);
+    letter-spacing: 0.02em;
+  }
+
+  .zwnj-label:hover .zwnj-text {
+    color: var(--rust);
+  }
+
+  /* MOBILE */
+  @media (max-width: 700px) {
+    .columns { grid-template-columns: 1fr; }
+    .arrow-col { padding: 1rem 0; transform: rotate(90deg); }
+    .title-main { font-size: 2.5rem; }
+    .editor-wrap { padding: 1rem; }
+    .direction-panel { padding: 1rem 1rem 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-tulu"><span class="om-symbol">ॐ</span> Mallige Script Tool</div>
+  <div class="title-main">Tuḷu Transliterator</div>
+  <div class="title-sub">Mallige font encoding ↔ IAST · Devanāgarī · Kannaḍa · Malayāḷam</div>
+</header>
+
+<div class="direction-panel">
+  <button class="dir-btn active" data-dir="tulu-iast">Tuḷu → IAST</button>
+  <button class="dir-btn" data-dir="iast-tulu">IAST → Tuḷu</button>
+  <button class="dir-btn" data-dir="tulu-deva">Tuḷu → Devanāgarī</button>
+  <button class="dir-btn" data-dir="deva-tulu">Devanāgarī → Tuḷu</button>
+  <button class="dir-btn" data-dir="tulu-kan">Tuḷu → Kannaḍa</button>
+  <button class="dir-btn" data-dir="kan-tulu">Kannaḍa → Tuḷu</button>
+  <button class="dir-btn" data-dir="tulu-mal">Tuḷu → Malayāḷam</button>
+  <button class="dir-btn" data-dir="mal-tulu">Malayāḷam → Tuḷu</button>
+</div>
+
+<div class="zwnj-panel">
+  <label class="zwnj-label" id="zwnjLabel">
+    <span class="zwnj-check-wrap">
+      <input type="checkbox" id="zwnjCheck">
+      <span class="zwnj-checkmark"></span>
+    </span>
+    <span class="zwnj-text">Preserve non-joining virāmas (X → virama + ZWNJ)</span>
+  </label>
+</div>
+
+<div class="zwnj-panel">
+  <label class="zwnj-label" id="nasalLabel">
+    <span class="zwnj-check-wrap">
+      <input type="checkbox" id="nasalCheck">
+      <span class="zwnj-checkmark"></span>
+    </span>
+    <span class="zwnj-text">Disable pañcama-parasavarṇa (keep anusvāra as ṃ instead of class nasal)</span>
+  </label>
+</div>
+
+<div class="zwnj-panel">
+  <label class="zwnj-label" id="fontLabel">
+    <span class="zwnj-check-wrap">
+      <input type="checkbox" id="fontCheck">
+      <span class="zwnj-checkmark"></span>
+    </span>
+    <span class="zwnj-text">Render Tuḷu text in Mallige script font</span>
+  </label>
+</div>
+
+<div class="editor-wrap">
+  <div class="columns">
+    <div class="panel">
+      <div class="panel-label">
+        <span id="inputLabel">Input · Tuḷu (Mallige)</span>
+        <span class="panel-label-script" id="inputScript">Mallige encoding</span>
+      </div>
+      <div class="text-area-wrap">
+        <textarea id="inputText" placeholder="Type or paste Mallige-encoded Tuḷu text here…" spellcheck="false" autocomplete="off" autocorrect="off"></textarea>
+      </div>
+      <div class="char-count" id="inputCount">0 chars</div>
+    </div>
+
+    <div class="arrow-col">
+      <div class="arrow-wrap">
+        <svg class="arrow-svg" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 16h20M18 8l8 8-8 8"/>
+        </svg>
+        <button class="swap-btn" id="swapBtn" title="Swap input/output">⇄ swap</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">
+        <span id="outputLabel">Output · IAST</span>
+        <button class="copy-btn" id="copyBtn">copy</button>
+      </div>
+      <div class="text-area-wrap">
+        <div class="output-area" id="outputText" contenteditable="true" spellcheck="false"></div>
+      </div>
+      <div class="char-count" id="outputCount">0 chars</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="reference-section">
+    <div class="reference-toggle" id="refToggle">
+      <h3>Quick Reference</h3>
+      <span class="toggle-arrow">▼</span>
+    </div>
+    <div class="reference-grid" id="refGrid">
+
+      <div class="ref-card">
+        <h4>Vowels — Independent</h4>
+        <table class="ref-table">
+          <tr><td>AA</td><td>a</td><td>short a</td></tr>
+          <tr><td>Aa</td><td>ā</td><td>long a</td></tr>
+          <tr><td>Ai</td><td>i</td><td>short i</td></tr>
+          <tr><td>AI</td><td>ī</td><td>long i</td></tr>
+          <tr><td>Au</td><td>u</td><td>short u</td></tr>
+          <tr><td>AU</td><td>ū</td><td>long u</td></tr>
+          <tr><td>AR</td><td>r̥</td><td>vocalic r</td></tr>
+          <tr><td>ARR</td><td>r̥̄</td><td>long vocalic r</td></tr>
+          <tr><td>Vl</td><td>l̥</td><td>vocalic l</td></tr>
+          <tr><td>Vll</td><td>ḹ</td><td>long vocalic l</td></tr>
+          <tr><td>eA</td><td>e</td><td>short e</td></tr>
+          <tr><td>EA</td><td>ē</td><td>long e</td></tr>
+          <tr><td>oA</td><td>æ</td><td>front low æ</td></tr>
+          <tr><td>OA</td><td>ǣ</td><td>long front low ǣ</td></tr>
+          <tr><td>eeA</td><td>ai</td><td>diphthong</td></tr>
+          <tr><td>eAa</td><td>o</td><td>short o</td></tr>
+          <tr><td>EAa</td><td>ō</td><td>long o</td></tr>
+          <tr><td>AY</td><td>au</td><td>diphthong</td></tr>
+          <tr><td>AAM</td><td>aṃ</td><td>anusvāra</td></tr>
+          <tr><td>AAH</td><td>aḥ</td><td>visarga</td></tr>
+          <tr><td>AAMM</td><td>aṁ</td><td>anunāsika</td></tr>
+        </table>
+      </div>
+
+      <div class="ref-card">
+        <h4>Vowel Mātrās (post-base)</h4>
+        <table class="ref-table">
+          <tr><td>a</td><td>ā</td><td>after consonant</td></tr>
+          <tr><td>i</td><td>i</td><td></td></tr>
+          <tr><td>I</td><td>ī</td><td></td></tr>
+          <tr><td>u</td><td>u</td><td>stroke ext. (puccha)</td></tr>
+          <tr><td>U</td><td>ū</td><td>stroke ext. (puccha)</td></tr>
+          <tr><td>R</td><td>r̥</td><td></td></tr>
+          <tr><td>RR</td><td>r̥̄</td><td></td></tr>
+          <tr><td>VlX</td><td>l̥</td><td>vocalic l mātrā</td></tr>
+          <tr><td>VllX</td><td>ḹ</td><td>long vocalic l mātrā</td></tr>
+          <tr><td>M</td><td>ṃ</td><td>anusvāra</td></tr>
+          <tr><td>H</td><td>ḥ</td><td>visarga</td></tr>
+          <tr><td>MM</td><td>ṁ</td><td>anunāsika</td></tr>
+        </table>
+      </div>
+
+      <div class="ref-card">
+        <h4>Vowel Mātrās (pre-base)</h4>
+        <table class="ref-table">
+          <tr><td>e</td><td>e</td><td>typed BEFORE cons.</td></tr>
+          <tr><td>E</td><td>ē</td><td>typed BEFORE cons.</td></tr>
+          <tr><td>o</td><td>æ</td><td>typed BEFORE cons.</td></tr>
+          <tr><td>O</td><td>ǣ</td><td>typed BEFORE cons.</td></tr>
+          <tr><td>EE</td><td>ai</td><td>typed BEFORE cons.</td></tr>
+        </table>
+        <h4 style="margin-top:0.8rem">Split Mātrās</h4>
+        <table class="ref-table">
+          <tr><td>e[C]a</td><td>o</td><td>short o (split)</td></tr>
+          <tr><td>E[C]a</td><td>ō</td><td>long ō (split)</td></tr>
+          <tr><td>E[C]Y</td><td>au</td><td>diphthong au</td></tr>
+        </table>
+      </div>
+
+      <div class="ref-card">
+        <h4>Consonants — Stops</h4>
+        <table class="ref-table">
+          <tr><td>k K g G Z</td><td>k kh g gh ṅ</td><td>velar</td></tr>
+          <tr><td>c C j J z</td><td>c ch j jh ñ</td><td>palatal</td></tr>
+          <tr><td>q Q w W N</td><td>ṭ ṭh ḍ ḍh ṇ</td><td>retroflex</td></tr>
+          <tr><td>t T d D n</td><td>t th d dh n</td><td>dental</td></tr>
+          <tr><td>p P b B m</td><td>p ph b bh m</td><td>labial</td></tr>
+        </table>
+      </div>
+
+      <div class="ref-card">
+        <h4>Consonants — Other</h4>
+        <table class="ref-table">
+          <tr><td>y r l v</td><td>y r l v</td><td>approximants</td></tr>
+          <tr><td>L</td><td>ḷ</td><td>retroflex lateral</td></tr>
+          <tr><td>S x s h</td><td>ś ṣ s h</td><td>fricatives</td></tr>
+          <tr><td>VZ</td><td>ḻ</td><td>zha (rare)</td></tr>
+          <tr><td>Vr</td><td>ṟ</td><td>rha (rare)</td></tr>
+          <tr><td>VP</td><td>f</td><td>nuqta-pha</td></tr>
+          <tr><td>Vj</td><td>z</td><td>nuqta-ja</td></tr>
+        </table>
+      </div>
+
+      <div class="ref-card">
+        <h4>Special Markers</h4>
+        <table class="ref-table">
+          <tr><td>A</td><td>virāma</td><td>chandravirāma / cluster joiner</td></tr>
+          <tr><td>X</td><td>—</td><td>sūryavirāma / ZWNJ</td></tr>
+          <tr><td>f</td><td>r̈</td><td>repha (r above next cons.)</td></tr>
+          <tr><td>F</td><td>gem.</td><td>gemination mark</td></tr>
+          <tr><td>.</td><td>।</td><td>daṇḍa (full stop)</td></tr>
+          <tr><td>..</td><td>॥</td><td>double daṇḍa</td></tr>
+        </table>
+        <h4 style="margin-top:0.8rem">Cluster Rules</h4>
+        <table class="ref-table">
+          <tr><td>kAk</td><td>kka</td><td>puccha+puccha: direct</td></tr>
+          <tr><td>pAp</td><td>ppa</td><td>śiro first: stacked</td></tr>
+          <tr><td>DmfA</td><td>dharm-</td><td>puṣpika repha (m/y/v)</td></tr>
+          <tr><td>vxf</td><td>varṣ-</td><td>standard repha</td></tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<footer>
+  Based on the Mallige font by Prahlad Prasad Tantry · <em>A Prescriptive Primer to the Tuḷu Script</em> (2026)
+</footer>
+
+<script>
+// ============================================================
+// FULL TULU TRANSLITERATION ENGINE (embedded)
+// ============================================================
+
+const VOWEL_INDEPENDENT = [
+  ['AAMM','aṁ'],
+  ['AAM', 'aṃ'],
+  ['AAH', 'aḥ'],
+  ['ARR', 'r̥̄'],
+  ['Vll', 'ḹ'],
+  ['VlX', 'l̥'],   // vocalic l matra form (standalone treated as ind.)
+  ['Vl',  'l̥'],   // vocalic l independent
+  ['eeA', 'ai'],
+  ['EAa', 'ō'],
+  ['eAa', 'o'],
+  ['EA',  'ē'],
+  ['eA',  'e'],
+  ['OA',  'ǣ'],
+  ['oA',  'æ'],
+  ['AY',  'au'],
+  ['AR',  'r̥'],
+  ['AU',  'ū'],
+  ['Au',  'u'],
+  ['AI',  'ī'],
+  ['Ai',  'i'],
+  ['Aa',  'ā'],
+  ['AA',  'a'],
+];
+
+// Consonant map: Mallige key -> IAST
+const CONSONANT_MAP = [
+  ['VZ', 'ḻ'],
+  ['Vr', 'ṟ'],
+  ['VP', 'f'],
+  ['Vj', 'z'],
+  ['Z',  'ṅ'],
+  ['K',  'kh'],
+  ['G',  'gh'],
+  ['C',  'ch'],
+  ['J',  'jh'],
+  ['z',  'ñ'],
+  ['Q',  'ṭh'],
+  ['W',  'ḍh'],
+  ['T',  'th'],
+  ['D',  'dh'],
+  ['P',  'ph'],
+  ['B',  'bh'],
+  ['L',  'ḷ'],
+  ['k',  'k'],
+  ['g',  'g'],
+  ['c',  'c'],
+  ['j',  'j'],
+  ['q',  'ṭ'],
+  ['w',  'ḍ'],
+  ['N',  'ṇ'],
+  ['t',  't'],
+  ['d',  'd'],
+  ['n',  'n'],
+  ['p',  'p'],
+  ['b',  'b'],
+  ['m',  'm'],
+  ['y',  'y'],
+  ['r',  'r'],
+  ['l',  'l'],
+  ['v',  'v'],
+  ['S',  'ś'],
+  ['x',  'ṣ'],
+  ['s',  's'],
+  ['h',  'h'],
+];
+
+// Build reverse map (IAST -> Mallige) - first match wins
+const IAST_TO_MALLIGE_CONS = {};
+for (const [key, iast] of CONSONANT_MAP) {
+  if (!IAST_TO_MALLIGE_CONS[iast]) IAST_TO_MALLIGE_CONS[iast] = key;
+}
+
+const IAST_TO_MALLIGE_VOW_IND = {};
+for (const [seq, iast] of VOWEL_INDEPENDENT) {
+  if (!IAST_TO_MALLIGE_VOW_IND[iast]) IAST_TO_MALLIGE_VOW_IND[iast] = seq;
+}
+
+// Explicit set of consonants that take the Sūryavirāma loop terminal (based on Primer Table 10.2 & 10.3)
+const SURYAVIRAMA_CONS = new Set(['k','g','ṭ','ṇ','t','d','n','m','h','bh','ḷ','r']);
+
+// Script vowel table: [iast, deva_ind, deva_mat, kan_ind, kan_mat, mal_ind, mal_mat]
+const SCRIPT_VOWEL_TABLE = [
+  ['a',   'अ',  '',   'ಅ',  '',   'അ',  ''],
+  ['ā',   'आ',  'ा',  'ಆ',  'ಾ',  'ആ',  'ാ'],
+  ['i',   'इ',  'ि',  'ಇ',  'ಿ',  'ഇ',  'ി'],
+  ['ī',   'ई',  'ी',  'ಈ',  'ೀ',  'ഈ',  'ീ'],
+  ['u',   'उ',  'ु',  'ಉ',  'ು',  'ഉ',  'ു'],
+  ['ū',   'ऊ',  'ू',  'ಊ',  'ೂ',  'ഊ',  'ൂ'],
+  ['r̥',   'ऋ',  'ृ',  'ಋ',  'ೃ',  'ഋ',  'ൃ'],
+  ['r̥̄',   'ॠ',  'ॄ',  'ೠ',  'ೄ',  'ൠ',  'ൄ'],
+  ['l̥',   'ऌ',  'ॢ',  'ಌ',  'ೢ',  'ഌ',  'ൢ'],
+  ['ḹ',   'ॡ',  'ॣ',  'ೡ',  'ೣ',  'ൡ',  'ൣ'],
+  ['e',   'ऎ',  'ॆ',  'ಎ',  'ೆ',  'എ',  'െ'],
+  ['ē',   'ए',  'े',  'ಏ',  'ೇ',  'ഏ',  'േ'],
+  ['æ',   'ऎ',  'ॆ',  'ಎ',  'ೆ',  'എ',  'െ'],
+  ['ǣ',   'ए',  'े',  'ಏ',  'ೇ',  'ഏ',  'േ'],
+  ['ai',  'ऐ',  'ै',  'ಐ',  'ೈ',  'ഐ',  'ൈ'],
+  ['o',   'ऒ',  'ॊ',  'ಒ',  'ೊ',  'ഒ',  'ൊ'],
+  ['ō',   'ओ',  'ो',  'ಓ',  'ೋ',  'ഓ',  'ോ'],
+  ['au',  'औ',  'ौ',  'ಔ',  'ೌ',  'ഔ',  'ൌ'],
+  ['aṃ',  'अं', 'ं',  'ಅಂ', 'ಂ',  'അം', 'ം'],
+  ['aḥ',  'अः', 'ः',  'ಅಃ', 'ಃ',  'അഃ', 'ഃ'],
+  ['aṁ',  'अँ', 'ँ',  'ಅಁ', 'ಁ',  'അഁ', 'ഁ'],
+  ['ụ',   '',   '',   '',   '',   '',   ''],  // reduced vowel - no script form
+];
+
+// Script consonant table: [iast, deva, kan, mal]
+const SCRIPT_CONS_TABLE = [
+  ['k',  'क', 'ಕ', 'ക'],
+  ['kh', 'ख', 'ಖ', 'ഖ'],
+  ['g',  'ग', 'ಗ', 'ഗ'],
+  ['gh', 'घ', 'ಘ', 'ഘ'],
+  ['ṅ',  'ङ', 'ಙ', 'ങ'],
+  ['c',  'च', 'ಚ', 'ച'],
+  ['ch', 'छ', 'ಛ', 'ഛ'],
+  ['j',  'ज', 'ಜ', 'ജ'],
+  ['jh', 'झ', 'ಝ', 'ഝ'],
+  ['ñ',  'ञ', 'ಞ', 'ഞ'],
+  ['ṭ',  'ट', 'ಟ', 'ട'],
+  ['ṭh', 'ठ', 'ಠ', 'ഠ'],
+  ['ḍ',  'ड', 'ಡ', 'ഡ'],
+  ['ḍh', 'ढ', 'ಢ', 'ഢ'],
+  ['ṇ',  'ण', 'ಣ', 'ണ'],
+  ['t',  'त', 'ತ', 'ത'],
+  ['th', 'थ', 'ಥ', 'ഥ'],
+  ['d',  'द', 'ದ', 'ദ'],
+  ['dh', 'ध', 'ಧ', 'ധ'],
+  ['n',  'न', 'ನ', 'ന'],
+  ['p',  'प', 'ಪ', 'പ'],
+  ['ph', 'फ', 'ಫ', 'ഫ'],
+  ['b',  'ब', 'ಬ', 'ബ'],
+  ['bh', 'भ', 'ಭ', 'ഭ'],
+  ['m',  'म', 'ಮ', 'മ'],
+  ['y',  'य', 'ಯ', 'യ'],
+  ['r',  'र', 'ರ', 'ര'],
+  ['l',  'ल', 'ಲ', 'ല'],
+  ['v',  'व', 'ವ', 'വ'],
+  ['ḷ',  'ळ', 'ಳ', 'ള'],
+  ['ś',  'श', 'ಶ', 'ശ'],
+  ['ṣ',  'ष', 'ಷ', 'ഷ'],
+  ['s',  'स', 'ಸ', 'സ'],
+  ['h',  'ह', 'ಹ', 'ഹ'],
+  ['ḻ',  'ळ', 'ೞ', 'ഴ'],
+  ['ṟ',  'ऱ', 'ಱ', 'റ'],
+  ['f',  'फ़','ಫ', 'ഫ'],
+  ['z',  'ज़','ಜ', 'ജ'],
+];
+
+const VIRAMA_MAP = { deva: '्', kan: '್', mal: '്' };
+
+// ============================================================
+// PARSER: Mallige -> Token stream
+// ============================================================
+
+function parseMallige(input) {
+  const tokens = [];
+  let i = 0;
+  const len = input.length;
+
+  while (i < len) {
+    const ch = input[i];
+
+    if (ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t') {
+      tokens.push({ type: 'space', char: ch }); i++; continue;
+    }
+
+    // Punctuation
+    if (ch === '.' && i+1 < len && input[i+1] === '.') {
+      tokens.push({ type: 'punct', char: '॥' }); i+=2; continue;
+    }
+    if (ch === '.') { tokens.push({ type: 'punct', char: '।' }); i++; continue; }
+    if (ch === ',') { tokens.push({ type: 'punct', char: ',' }); i++; continue; }
+
+    // Try independent vowel
+    const vowelM = matchIndepVowel(input, i);
+    if (vowelM) {
+      // Check: if iast='a' and next char is A (chandravirāma) -> it's ụ (reduced vowel)
+      // Note: X is pure ZWNJ, not virama — only A triggers reduced vowel.
+      if (vowelM.iast === 'a' && i + vowelM.len < len) {
+        const nx = input[i + vowelM.len];
+        if (nx === 'A') {
+          tokens.push({ type: 'vowel', iast: 'ụ' });
+          i += vowelM.len + 1;
+          continue;
+        }
+      }
+      tokens.push({ type: 'vowel', iast: vowelM.iast });
+      i += vowelM.len;
+      // Check for trailing diacritic (M/H/MM) after independent vowel
+      if (i < len) {
+        if (input.startsWith('MM', i)) {
+          tokens[tokens.length - 1].iast += 'ṁ'; i += 2;
+        } else if (input[i] === 'M') {
+          tokens[tokens.length - 1].iast += 'ṃ'; i++;
+        } else if (input[i] === 'H') {
+          tokens[tokens.length - 1].iast += 'ḥ'; i++;
+        }
+      }
+      continue;
+    }
+
+    // Try syllable (possibly starting with pre-base matra)
+    const sylResult = parseSyllable(input, i);
+    if (sylResult) {
+      tokens.push(sylResult.token);
+      i += sylResult.consumed;
+      continue;
+    }
+
+    // Standalone X = ZWNJ (not a virama; virama is always A / AX)
+    if (ch === 'X') {
+      tokens.push({ type: 'raw', char: '\u200C' });
+      i++;
+      continue;
+    }
+
+    // Passthrough
+    tokens.push({ type: 'raw', char: ch });
+    i++;
+  }
+  return tokens;
+}
+
+function matchIndepVowel(input, pos) {
+  for (const [seq, iast] of VOWEL_INDEPENDENT) {
+    if (input.startsWith(seq, pos)) return { iast, len: seq.length };
+  }
+  return null;
+}
+
+function matchCons(input, pos) {
+  for (const [key, iast] of CONSONANT_MAP) {
+    if (input.startsWith(key, pos)) return { iast, len: key.length };
+  }
+  return null;
+}
+
+function matchPostMatra(input, pos) {
+  const postList = [
+    ['MM', 'ṁ'], ['RR', 'r̥̄'], ['VllX', 'ḹ'], ['VlX', 'l̥'],
+    ['I', 'ī'], ['i', 'i'], ['U', 'ū'], ['u', 'u'],
+    ['a', 'ā'], ['R', 'r̥'],
+  ];
+  for (const [seq, iast] of postList) {
+    if (input.startsWith(seq, pos)) return { iast, len: seq.length };
+  }
+  return null;
+}
+
+function parseSyllable(input, startPos) {
+  let i = startPos;
+  const len = input.length;
+
+  // Pre-base matra check (typed BEFORE consonant)
+  let preMatra = null;
+  const preBases = [
+    ['EE', 'ai'], ['ee', 'ai'], ['E', 'ē'], ['O', 'ǣ'], ['e', 'e'], ['o', 'æ']
+  ];
+  for (const [seq, iast] of preBases) {
+    if (input.startsWith(seq, i)) {
+      preMatra = { seq, iast };
+      i += seq.length;
+      break;
+    }
+  }
+
+  // Must find at least one consonant
+  const c0 = matchCons(input, i);
+  if (!c0) return null; // no consonant
+
+  const consonants = [];
+  i += c0.len;
+
+  // Check repha AFTER first consonant
+  // f = repha marker: means there was an r before this consonant
+  // In IAST output: r + consonant(s) + vowel
+  let hasRepha = false;
+  if (i < len && input[i] === 'f') {
+    hasRepha = true; i++;
+  }
+
+  consonants.push(c0.iast);
+
+  // Collect conjunct cluster: A + consonant (+ optional repha)
+  while (i < len && input[i] === 'A') {
+    const nc = matchCons(input, i + 1);
+    if (nc) {
+      consonants.push(nc.iast);
+      i += 1 + nc.len;
+      // repha after next consonant?
+      if (i < len && input[i] === 'f') { hasRepha = true; i++; }
+    } else {
+      break;
+    }
+  }
+
+  // If repha, r was before the FIRST consonant
+  if (hasRepha) consonants.unshift('r');
+
+  // X is never a virama by itself — only A is. Standalone X is ZWNJ and
+  // will be handled by parseMallige as a raw token. The AX combination
+  // (virama + ZWNJ) is handled below in the 'A' branch.
+  let zwnjAfter = false;
+
+  // Determine vowel
+  let vowel = null;
+  let diacritic = null;
+
+  if (preMatra) {
+    const pm = preMatra.iast;
+    if (pm === 'e' && i < len && input[i] === 'a') { vowel = 'o'; i++; }
+    else if (pm === 'ē' && i < len && input[i] === 'a') { vowel = 'ō'; i++; }
+    else if (pm === 'ē' && i < len && input[i] === 'Y') { vowel = 'au'; i++; }
+    else vowel = pm;
+  } else {
+    // Check diacritics BEFORE post-matra (M, H, MM come after vowel)
+    const pm = matchPostMatra(input, i);
+    if (pm) {
+      if (pm.iast === 'ṃ' || pm.iast === 'ḥ' || pm.iast === 'ṁ') {
+        vowel = 'a'; // inherent vowel + diacritic
+        diacritic = pm.iast;
+        i += pm.len;
+      } else {
+        vowel = pm.iast;
+        i += pm.len;
+      }
+    } else if (i < len && input[i] === 'A') {
+      // Uppercase A = chandravirāma = no vowel (explicit suppression for śirovarṇas)
+      vowel = null;
+      i++; // consume the A
+      // If A is followed by X, consume it too — but first check if X is a ZWNJ
+      // (i.e. a consonant or pre-matra follows after the X)
+      if (i < len && input[i] === 'X') {
+        i++; // consume X
+        const nextIsCons = !!matchCons(input, i);
+        const nextIsPreMatra = ['EE','E','O','e','o'].some(s => input.startsWith(s, i));
+        if (nextIsCons || nextIsPreMatra) zwnjAfter = true;
+      }
+    } else {
+      vowel = 'a'; // inherent
+    }
+  }
+
+  // Check for diacritic after vowel (M/H/MM)
+  if (!diacritic && i < len) {
+    if (input.startsWith('MM', i)) { diacritic = 'ṁ'; i += 2; }
+    else if (input[i] === 'M') { diacritic = 'ṃ'; i++; }
+    else if (input[i] === 'H') { diacritic = 'ḥ'; i++; }
+  }
+
+  // Gemination mark
+  let geminated = false;
+  if (i < len && input[i] === 'F') { geminated = true; i++; }
+
+  return {
+    token: { type: 'syllable', consonants, vowel, diacritic, geminated, zwnjAfter },
+    consumed: i - startPos
+  };
+}
+
+// ============================================================
+// RENDER TOKENS -> IAST
+// ============================================================
+
+function tokensToIast(tokens) {
+  return tokens.map(t => {
+    if (t.type === 'space') return t.char;
+    if (t.type === 'punct') return t.char;
+    if (t.type === 'raw')   return t.char;
+    if (t.type === 'vowel') return t.iast === 'ụ' ? 'ụ' : t.iast;
+    if (t.type === 'syllable') {
+      const { consonants, vowel, diacritic, geminated, zwnjAfter } = t;
+      let out = '';
+      if (consonants.length === 0) {
+        out = vowel || '';
+      } else {
+        if (geminated && consonants.length > 0) {
+          const last = consonants[consonants.length - 1];
+          out = consonants.slice(0, -1).join('') + last + last;
+        } else {
+          out = consonants.join('');
+        }
+        if (vowel) out += vowel;
+      }
+      if (diacritic) out += diacritic;
+      // Embed ZWNJ into the IAST string so it survives the pivot through
+      // parseIastString and reaches iastToScript / iastToTulu intact.
+      // parseIastString passes unknown chars through as raw tokens;
+      // iastToScript appends raw chars directly; iastToTulu maps ZWNJ -> X.
+      if (zwnjAfter && preserveZwnj) out += ZWNJ;
+      return out;
+    }
+    return '';
+  }).join('');
+}
+
+function tuluToIast(text) {
+  // Pure IAST output: never embed ZWNJ regardless of checkbox state.
+  // The ZWNJ is only meaningful when routing through to a Unicode script renderer.
+  const savedFlag = preserveZwnj;
+  preserveZwnj = false;
+  const result = tokensToIast(parseMallige(text));
+  preserveZwnj = savedFlag;
+  return result;
+}
+
+// Internal version that respects preserveZwnj, used when pivoting to other scripts.
+function tuluToIastPivot(text) {
+  return tokensToIast(parseMallige(text));
+}
+
+// ============================================================
+// IAST PARSER (pivot for other directions)
+// ============================================================
+
+function parseIastString(iastInput) {
+  // IAST is case-insensitive — normalise to lowercase so that
+  // 'Karma' parses the same as 'karma', 'Ś' the same as 'ś', etc.
+  const iast = iastInput.toLowerCase();
+  // Returns array of tokens: vowel | syllable | raw
+  const tokens = [];
+  let i = 0;
+  const len = iast.length;
+
+  // Ordered consonant list (longer first)
+  const IAST_CONS = [
+    'kh','gh','ch','jh','ṭh','ḍh','th','dh','ph','bh',
+    'ṅ','ñ','ṇ','ṭ','ḍ','ṟ','ḻ','ḷ',
+    'k','g','c','j','t','d','n','p','b','m',
+    'y','r','l','v','ś','ṣ','s','h','f','z'
+  ];
+
+  const IAST_VOWS = [
+    'ai','au','ā','ī','ū','r̥','r̥̄','ḹ','l̥','ē','ō','ǣ','æ',
+    'aṃ','aḥ','aṁ',
+    'ṃ','ḥ','ṁ',
+    'a','i','u','e','o','ụ'
+  ];
+
+  function tryVowel(pos) {
+    for (const v of IAST_VOWS) {
+      if (iast.startsWith(v, pos)) return { v, len: v.length };
+    }
+    return null;
+  }
+
+  function tryCons(pos) {
+    for (const c of IAST_CONS) {
+      if (iast.startsWith(c, pos)) return { c, len: c.length };
+    }
+    return null;
+  }
+
+  while (i < len) {
+    const ch = iast[i];
+    if (ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t' || ch === ',' || ch === '।' || ch === '॥') {
+      tokens.push({ type: 'raw', char: ch }); i++; continue;
+    }
+
+    // Try consonant
+    const cm = tryCons(i);
+    if (cm) {
+      const consonants = [cm.c];
+      i += cm.len;
+      // Greedily collect all consecutive consonants until a vowel (or end/space).
+      // Rule: if the current position has no vowel but has a consonant, that
+      // consonant belongs to this cluster. Keep going until we hit a vowel.
+      // This correctly handles kṣa (k+ṣ get cluster, a is shared vowel),
+      // nta, kṣtra, etc.
+      while (true) {
+        // If there's a vowel right here, stop — it belongs to the cluster we have
+        if (tryVowel(i)) break;
+        // If there's a consonant right here, it belongs to this cluster
+        const nm = tryCons(i);
+        if (!nm) break;
+        consonants.push(nm.c);
+        i += nm.len;
+      }
+      // Get vowel — default null means no vowel found (virama needed).
+      // Explicit IAST 'a' IS matched by tryVowel, so inherent-a syllables
+      // still work correctly; only truly final/cluster consonants get null.
+      let vowel = null;
+      let diacritic = null;
+      const vm = tryVowel(i);
+      if (vm) {
+        if (vm.v === 'ṃ' || vm.v === 'ḥ' || vm.v === 'ṁ') {
+          diacritic = vm.v; i += vm.len;
+        } else if (vm.v === 'aṃ' || vm.v === 'aḥ' || vm.v === 'aṁ') {
+          // Decompose compound: inherent 'a' + diacritic
+          vowel = 'a';
+          diacritic = vm.v.slice(1);
+          i += vm.len;
+        } else {
+          vowel = vm.v; i += vm.len;
+          // Check diacritic after vowel
+          const dm = tryVowel(i);
+          if (dm && (dm.v === 'ṃ' || dm.v === 'ḥ' || dm.v === 'ṁ')) {
+            diacritic = dm.v; i += dm.len;
+          }
+        }
+      }
+      tokens.push({ type: 'syllable', consonants, vowel, diacritic });
+      continue;
+    }
+
+    // Try standalone vowel or diacritic
+    const vm = tryVowel(i);
+    if (vm) {
+      // Diacritics (anusvara, visarga, anunasika) are not independent vowels —
+      // they modify the preceding syllable or vowel. Attach to last token if possible.
+      if (vm.v === 'ṃ' || vm.v === 'ḥ' || vm.v === 'ṁ') {
+        const last = tokens[tokens.length - 1];
+        if (last && last.type === 'syllable' && !last.diacritic) {
+          last.diacritic = vm.v;
+        } else if (last && last.type === 'vowel') {
+          // Append diacritic to the vowel (e.g. 'i' + 'ṃ' → 'iṃ')
+          last.iast += vm.v;
+        } else {
+          // No preceding syllable to attach to — emit as standalone vowel
+          // using the 'a' + diacritic compound form (e.g. 'aṃ')
+          tokens.push({ type: 'vowel', iast: 'a' + vm.v });
+        }
+        i += vm.len; continue;
+      }
+      tokens.push({ type: 'vowel', iast: vm.v }); i += vm.len; continue;
+    }
+
+    tokens.push({ type: 'raw', char: ch }); i++;
+  }
+  return tokens;
+}
+
+// ============================================================
+// IAST -> TARGET SCRIPT
+// ============================================================
+
+function buildScriptMaps(script) {
+  // VOWEL_TABLE: [iast, deva_ind, deva_mat, kan_ind, kan_mat, mal_ind, mal_mat]  (7 cols)
+  const vsi = { deva: 1, kan: 3, mal: 5 }[script];
+  const vmi = { deva: 2, kan: 4, mal: 6 }[script];
+  // CONS_TABLE:  [iast, deva, kan, mal]  (4 cols)
+  const csi = { deva: 1, kan: 2, mal: 3 }[script];
+  const vowInd = {}, vowMat = {}, cons = {};
+  for (const row of SCRIPT_VOWEL_TABLE) {
+    if (row[vsi]) vowInd[row[0]] = row[vsi];
+    if (row[vmi]) vowMat[row[0]] = row[vmi];
+  }
+  for (const row of SCRIPT_CONS_TABLE) {
+    if (row[csi]) cons[row[0]] = row[csi];
+  }
+  return { vowInd, vowMat, cons, vir: VIRAMA_MAP[script] };
+}
+
+function iastToScript(iast, script) {
+  const { vowInd, vowMat, cons, vir } = buildScriptMaps(script);
+  const tokens = parseIastString(iast);
+  let result = '';
+
+  for (const t of tokens) {
+    if (t.type === 'raw') { result += t.char; continue; }
+    if (t.type === 'vowel') {
+      let v = t.iast;
+      let d = '';
+      if (v.length > 1) {
+        const lastChar = v[v.length - 1];
+        if (lastChar === 'ṃ' || lastChar === 'ḥ' || lastChar === 'ṁ') {
+          if (vowInd[v] !== undefined) {
+            result += vowInd[v];
+            continue;
+          }
+          d = lastChar;
+          v = v.slice(0, -1);
+        }
+      }
+      result += (vowInd[v] !== undefined ? vowInd[v] : v);
+      if (d) {
+        const dm = vowMat[d] || vowMat['a' + d];
+        result += dm || '';
+      }
+      continue;
+    }
+    if (t.type === 'syllable') {
+      const { consonants, vowel, diacritic, zwnjAfter } = t;
+      for (let ci = 0; ci < consonants.length; ci++) {
+        result += (cons[consonants[ci]] || consonants[ci]);
+        if (ci < consonants.length - 1) result += vir;
+      }
+      // Vowel / virama
+      if (!vowel || vowel === '') {
+        result += vir;
+        if (zwnjAfter && preserveZwnj) result += ZWNJ;
+      } else if (vowel === 'a') {
+        // inherent - nothing
+      } else if (vowel === 'ụ') {
+        result += vir;
+        if (zwnjAfter && preserveZwnj) result += ZWNJ;
+      } else {
+        result += (vowMat[vowel] !== undefined ? vowMat[vowel] : '');
+      }
+      if (diacritic) {
+        // Try the diacritic as a mātrā key first; if that fails, look up
+        // the compound form ('aṃ', 'aḥ', 'aṁ') used in SCRIPT_VOWEL_TABLE.
+        const dm = vowMat[diacritic] || vowMat['a' + diacritic];
+        if (dm) {
+          result += dm;
+        } else {
+          // Last resort: find the independent-vowel form and strip the base-a
+          const compKey = 'a' + diacritic;
+          if (vowInd[compKey]) {
+            // Independent form is e.g. 'अं'; strip the leading consonant's vowel
+            // and keep just the diacritic sign (last char).
+            const indForm = vowInd[compKey];
+            result += indForm.slice(-1);
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+// ============================================================
+// IAST -> TULU (Mallige)
+// ============================================================
+
+const POST_MAT_FROM_IAST = {
+  'ā': 'a', 'i': 'i', 'ī': 'I', 'u': 'u', 'ū': 'U',
+  'r̥': 'R', 'r̥̄': 'RR', 'l̥': 'VlX', 'ḹ': 'VllX',
+  'ṃ': 'M', 'ḥ': 'H', 'ṁ': 'MM'
+};
+const PRE_MAT_FROM_IAST = {
+  'e': 'e', 'ē': 'E', 'æ': 'o', 'ǣ': 'O', 'ai': 'EE'
+};
+const SPLIT_MAT_FROM_IAST = {
+  'o':  { pre: 'e', post: 'a' },
+  'ō':  { pre: 'E', post: 'a' },
+  'au': { pre: 'E', post: 'Y' },
+};
+
+function iastToTulu(iast) {
+  const tokens = parseIastString(iast);
+  let result = '';
+
+  for (const t of tokens) {
+    if (t.type === 'raw') {
+      // ZWNJ passed through from a unicode source -> emit X in Mallige
+      result += (t.char === ZWNJ) ? 'X' : t.char;
+      continue;
+    }
+    if (t.type === 'vowel') {
+      let v = t.iast;
+      let d = '';
+      // Separate out the diacritic if the compound isn't explicitly in the map
+      if (v.length > 1) {
+        const lastChar = v[v.length - 1];
+        if (lastChar === 'ṃ' || lastChar === 'ḥ' || lastChar === 'ṁ') {
+          if (IAST_TO_MALLIGE_VOW_IND[v]) {
+            result += IAST_TO_MALLIGE_VOW_IND[v];
+            continue;
+          }
+          d = lastChar;
+          v = v.slice(0, -1);
+        }
+      }
+      result += (IAST_TO_MALLIGE_VOW_IND[v] || v);
+      if (d) result += (POST_MAT_FROM_IAST[d] || '');
+      continue;
+    }
+    if (t.type === 'syllable') {
+      const { consonants, vowel, diacritic } = t;
+      const v = vowel || '';
+
+      let pre = '', post = '';
+      if (!v || v === '') {
+        // no vowel - will add virama
+      } else if (PRE_MAT_FROM_IAST[v]) {
+        pre = PRE_MAT_FROM_IAST[v];
+      } else if (SPLIT_MAT_FROM_IAST[v]) {
+        pre = SPLIT_MAT_FROM_IAST[v].pre;
+        post = SPLIT_MAT_FROM_IAST[v].post;
+      } else if (POST_MAT_FROM_IAST[v]) {
+        post = POST_MAT_FROM_IAST[v];
+      }
+      // v === 'a' -> inherent, no matra needed
+
+      // Handle repha: if first consonant is r and cluster has more
+      let effectiveCons = [...consonants];
+      let rephaStr = '';
+      if (effectiveCons.length > 1 && effectiveCons[0] === 'r') {
+        effectiveCons = effectiveCons.slice(1);
+        rephaStr = 'f'; // will be appended after LAST consonant of cluster
+      }
+
+      result += pre;
+
+      if (effectiveCons.length === 0) {
+        // standalone vowel
+        result += (IAST_TO_MALLIGE_VOW_IND[v] || v);
+      } else {
+        for (let ci = 0; ci < effectiveCons.length; ci++) {
+          result += (IAST_TO_MALLIGE_CONS[effectiveCons[ci]] || effectiveCons[ci]);
+          if (ci === effectiveCons.length - 1 && rephaStr) result += rephaStr;
+          if (ci < effectiveCons.length - 1) result += 'A';
+        }
+
+        // Vowel / virama (governed by the SURYAVIRAMA rule)
+        if (!v || v === '') {
+          const lastC = effectiveCons[effectiveCons.length - 1];
+          result += SURYAVIRAMA_CONS.has(lastC) ? 'AX' : 'A';
+        } else if (v === 'a') {
+          // inherent - nothing
+        } else if (v === 'ụ') {
+          const lastC = effectiveCons[effectiveCons.length - 1];
+          result += SURYAVIRAMA_CONS.has(lastC) ? 'AX' : 'A';
+        } else {
+          result += post;
+        }
+      }
+
+      if (diacritic) result += (POST_MAT_FROM_IAST[diacritic] || '');
+    }
+  }
+  return result;
+}
+
+// ============================================================
+// UNICODE SCRIPT -> IAST -> TULU
+// ============================================================
+
+function buildRevMaps(script) {
+  // VOWEL_TABLE: [iast, deva_ind, deva_mat, kan_ind, kan_mat, mal_ind, mal_mat]  (7 cols)
+  const vsi = { deva: 1, kan: 3, mal: 5 }[script];
+  const vmi = { deva: 2, kan: 4, mal: 6 }[script];
+  // CONS_TABLE:  [iast, deva, kan, mal]  (4 cols)
+  const csi = { deva: 1, kan: 2, mal: 3 }[script];
+  const map = {};
+  
+  for (const row of SCRIPT_VOWEL_TABLE) {
+    if (row[vsi] && !map[row[vsi]]) map[row[vsi]] = { type: 'vi', iast: row[0] };
+    if (row[vmi] && row[vmi] !== row[vsi] && !map[row[vmi]]) map[row[vmi]] = { type: 'vm', iast: row[0] };
+  }
+  
+  for (const row of SCRIPT_CONS_TABLE) {
+    if (row[csi] && !map[row[csi]]) map[row[csi]] = { type: 'c', iast: row[0] };
+  }
+  
+  const vir = VIRAMA_MAP[script];
+  if (vir) map[vir] = { type: 'vir' };
+  
+  // Anusvara, visarga, anunasika for each script
+  const extras = {
+    deva: { 'ं': 'ṃ', 'ः': 'ḥ', 'ँ': 'ṁ' },
+    kan:  { 'ಂ': 'ṃ', 'ಃ': 'ḥ', 'ಁ': 'ṁ' },
+    mal:  { 'ം': 'ṃ', 'ഃ': 'ḥ', 'ഁ': 'ṁ' },
+  };
+  for (const [ch, iast] of Object.entries(extras[script] || {})) {
+    // Force-override: these signs were already registered as 'vm' (vowel mātrā)
+    // by SCRIPT_VOWEL_TABLE, but they must be 'dia' (diacritic) so that
+    // unicodeToIast handles them correctly after consonants AND standalone.
+    map[ch] = { type: 'dia', iast };
+  }
+  
+  return { map, vir };
+}
+
+function unicodeToIast(text, script) {
+  const { map, vir } = buildRevMaps(script);
+  let result = '';
+  let i = 0;
+  const chars = [...text]; // Unicode-aware
+  const len = chars.length;
+
+  while (i < len) {
+    const ch = chars[i];
+    if (ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t') { result += ch; i++; continue; }
+
+    const e = map[ch];
+    if (!e) { result += ch; i++; continue; }
+
+    if (e.type === 'vi') {
+      // Independent vowel - check it's not actually matra context
+      result += e.iast; i++; continue;
+    }
+
+    if (e.type === 'c') {
+      const iast = e.iast;
+      i++;
+      // Check next: virama or matra
+      if (i < len && chars[i] === vir) {
+        // Consonant + virama = no vowel (cluster member or ZWNJ break)
+        result += iast;
+        i++; // consume virama
+        // If virama is followed by ZWNJ, pass it through so iastToTulu emits X
+        if (i < len && chars[i] === ZWNJ) { result += ZWNJ; i++; }
+      } else if (i < len && map[chars[i]] && map[chars[i]].type === 'vm') {
+        const mat = map[chars[i]];
+        // Check for diacritic (anusvara/visarga/anunasika) after matra
+        let matIast = mat.iast;
+        if (i + 1 < len && map[chars[i + 1]] && map[chars[i + 1]].type === 'dia') {
+          matIast += map[chars[i + 1]].iast;
+          i++; // consume the diacritic too
+        }
+        result += iast + matIast; i++;
+      } else if (i < len && map[chars[i]] && map[chars[i]].type === 'dia') {
+        // Consonant + anusvara/visarga/anunasika: emit as cons + inherent-a + diacritic
+        result += iast + 'a' + map[chars[i]].iast; i++;
+      } else {
+        result += iast + 'a'; // inherent vowel
+      }
+      continue;
+    }
+
+    if (e.type === 'dia') {
+      result += e.iast; i++; continue;
+    }
+
+    result += ch; i++;
+  }
+  return result;
+}
+
+// ============================================================
+// ANUSVĀRA → PAÑCAMA-PARASAVARṆA (nasal resolution)
+// ============================================================
+// Before a stop consonant the anusvāra becomes the class nasal:
+//   ka-varga (k kh g gh) → ṅ
+//   ca-varga (c ch j jh) → ñ
+//   ṭa-varga (ṭ ṭh ḍ ḍh) → ṇ
+//   ta-varga (t th d dh) → n
+//   pa-varga (p ph b bh) → m
+// Before ya, ra, la, va, ḷa and all fricatives it stays ṃ.
+
+const NASAL_FOR_VARGA = {
+  'k': 'ṅ', 'kh': 'ṅ', 'g': 'ṅ', 'gh': 'ṅ',
+  'c': 'ñ', 'ch': 'ñ', 'j': 'ñ', 'jh': 'ñ',
+  'ṭ': 'ṇ', 'ṭh': 'ṇ', 'ḍ': 'ṇ', 'ḍh': 'ṇ',
+  't': 'n', 'th': 'n', 'd': 'n', 'dh': 'n',
+  'p': 'm', 'ph': 'm', 'b': 'm', 'bh': 'm',
+};
+
+// Ordered longest-first so 'kh' is tried before 'k', etc.
+const IAST_CONS_ORDERED = [
+  'kh','gh','ch','jh','ṭh','ḍh','th','dh','ph','bh',
+  'ṅ','ñ','ṇ','ṭ','ḍ','ṟ','ḻ','ḷ',
+  'k','g','c','j','t','d','n','p','b','m',
+  'y','r','l','v','ś','ṣ','s','h','f','z'
+];
+
+function resolveAnusvara(iastStr) {
+  // Walk through the IAST string; wherever ṃ appears, peek at the next
+  // consonant and replace with the class nasal if applicable.
+  let result = '';
+  let i = 0;
+  const len = iastStr.length;
+
+  while (i < len) {
+    if (iastStr[i] === 'ṃ') {
+      // Look ahead for the next consonant
+      let nextCons = null;
+      const rest = i + 1;
+      for (const c of IAST_CONS_ORDERED) {
+        if (iastStr.startsWith(c, rest)) { nextCons = c; break; }
+      }
+      if (nextCons && NASAL_FOR_VARGA[nextCons]) {
+        result += NASAL_FOR_VARGA[nextCons];
+      } else {
+        result += 'ṃ';
+      }
+      i++;
+    } else {
+      result += iastStr[i];
+      i++;
+    }
+  }
+  return result;
+}
+
+let resolveNasals = true; // default ON; UI checkbox disables it
+
+// ============================================================
+// MAIN CONVERT FUNCTION
+// ============================================================
+
+let preserveZwnj = false; // controlled by UI checkbox
+const ZWNJ = '\u200C';
+
+function convert(text, dir) {
+  if (!text || !text.trim()) return '';
+  try {
+    switch (dir) {
+      case 'tulu-iast': return tuluToIast(text);       // clean IAST, no ZWNJ
+      case 'iast-tulu': return iastToTulu(text);
+      case 'tulu-deva': return iastToScript(tuluToIastPivot(text), 'deva');
+      case 'deva-tulu': {
+        let iast = unicodeToIast(text, 'deva');
+        if (resolveNasals) iast = resolveAnusvara(iast);
+        return iastToTulu(iast);
+      }
+      case 'tulu-kan':  return iastToScript(tuluToIastPivot(text), 'kan');
+      case 'kan-tulu': {
+        let iast = unicodeToIast(text, 'kan');
+        if (resolveNasals) iast = resolveAnusvara(iast);
+        return iastToTulu(iast);
+      }
+      case 'tulu-mal':  return iastToScript(tuluToIastPivot(text), 'mal');
+      case 'mal-tulu': {
+        let iast = unicodeToIast(text, 'mal');
+        if (resolveNasals) iast = resolveAnusvara(iast);
+        return iastToTulu(iast);
+      }
+      default: return text;
+    }
+  } catch(e) {
+    return '[Error: ' + e.message + ']';
+  }
+}
+
+// ============================================================
+// UI LOGIC
+// ============================================================
+
+const DIRECTION_LABELS = {
+  'tulu-iast': { in: 'Input · Tuḷu (Mallige)',  inSub: 'Mallige font encoding', out: 'Output · IAST',       outSub: 'IAST romanization' },
+  'iast-tulu': { in: 'Input · IAST',            inSub: 'IAST romanization',     out: 'Output · Tuḷu',       outSub: 'Mallige encoding' },
+  'tulu-deva': { in: 'Input · Tuḷu (Mallige)',  inSub: 'Mallige font encoding', out: 'Output · Devanāgarī', outSub: 'Devanagari Unicode' },
+  'deva-tulu': { in: 'Input · Devanāgarī',      inSub: 'Devanagari Unicode',    out: 'Output · Tuḷu',       outSub: 'Mallige encoding' },
+  'tulu-kan':  { in: 'Input · Tuḷu (Mallige)',  inSub: 'Mallige font encoding', out: 'Output · Kannaḍa',    outSub: 'Kannada Unicode' },
+  'kan-tulu':  { in: 'Input · Kannaḍa',         inSub: 'Kannada Unicode',       out: 'Output · Tuḷu',       outSub: 'Mallige encoding' },
+  'tulu-mal':  { in: 'Input · Tuḷu (Mallige)',  inSub: 'Mallige font encoding', out: 'Output · Malayāḷam',  outSub: 'Malayalam Unicode' },
+  'mal-tulu':  { in: 'Input · Malayāḷam',       inSub: 'Malayalam Unicode',     out: 'Output · Tuḷu',       outSub: 'Mallige encoding' },
+};
+
+const UNICODE_SCRIPTS = new Set(['deva-tulu','kan-tulu','mal-tulu','tulu-deva','tulu-kan','tulu-mal']);
+
+let currentDir = 'tulu-iast';
+let debounceTimer = null;
+
+const inputText  = document.getElementById('inputText');
+const outputText = document.getElementById('outputText');
+const inputLabel = document.getElementById('inputLabel');
+const inputScript= document.getElementById('inputScript');
+const outputLabel= document.getElementById('outputLabel');
+const inputCount = document.getElementById('inputCount');
+const outputCount= document.getElementById('outputCount');
+const copyBtn    = document.getElementById('copyBtn');
+const swapBtn    = document.getElementById('swapBtn');
+const dirBtns    = document.querySelectorAll('.dir-btn');
+const refToggle  = document.getElementById('refToggle');
+const refGrid    = document.getElementById('refGrid');
+
+function updateLabels() {
+  const labels = DIRECTION_LABELS[currentDir];
+  inputLabel.textContent  = labels.in;
+  inputScript.textContent = labels.inSub;
+  outputLabel.textContent = labels.out;
+}
+
+function doConvert() {
+  const text = inputText.value;
+  inputCount.textContent  = text.length + ' chars';
+  const out = convert(text, currentDir);
+  outputText.textContent  = out;
+  outputCount.textContent = out.length + ' chars';
+
+  // Apply larger font for unicode script outputs
+  if (UNICODE_SCRIPTS.has(currentDir) && !currentDir.endsWith('-tulu')) {
+    outputText.classList.add('large-script');
+  } else {
+    outputText.classList.remove('large-script');
+  }
+}
+
+function setDirection(dir) {
+  currentDir = dir;
+  dirBtns.forEach(b => b.classList.toggle('active', b.dataset.dir === dir));
+  updateLabels();
+  applyTuluFont();
+  inputText.value = '';
+  outputText.textContent = '';
+  inputCount.textContent  = '0 chars';
+  outputCount.textContent = '0 chars';
+  inputText.focus();
+}
+
+dirBtns.forEach(btn => {
+  btn.addEventListener('click', () => setDirection(btn.dataset.dir));
+});
+
+inputText.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(doConvert, 80);
+});
+
+// Swap button: reverse direction and swap content
+swapBtn.addEventListener('click', () => {
+  const parts = currentDir.split('-');
+  const reversed = parts[1] + '-' + parts[0];
+  if (DIRECTION_LABELS[reversed]) {
+    const currentOutput = outputText.textContent;
+    setDirection(reversed);
+    inputText.value = currentOutput;
+    doConvert();
+  }
+});
+
+copyBtn.addEventListener('click', () => {
+  const text = outputText.textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    copyBtn.textContent = 'copied!';
+    copyBtn.classList.add('copied');
+    setTimeout(() => {
+      copyBtn.textContent = 'copy';
+      copyBtn.classList.remove('copied');
+    }, 1500);
+  });
+});
+
+const zwnjCheck   = document.getElementById('zwnjCheck');
+
+zwnjCheck.addEventListener('change', () => {
+  preserveZwnj = zwnjCheck.checked;
+  doConvert();
+});
+
+const nasalCheck = document.getElementById('nasalCheck');
+nasalCheck.addEventListener('change', () => {
+  resolveNasals = !nasalCheck.checked;
+  doConvert();
+});
+
+let useTuluFont = false;
+const fontCheck = document.getElementById('fontCheck');
+fontCheck.addEventListener('change', () => {
+  useTuluFont = fontCheck.checked;
+  applyTuluFont();
+});
+
+function applyTuluFont() {
+  // Only apply the Mallige font to the side(s) showing Tuḷu (Mallige) text.
+  // Directions ending in '-tulu' have Tuḷu on the OUTPUT side.
+  // Directions starting with 'tulu-' have Tuḷu on the INPUT side.
+  const tuluIsInput  = currentDir.startsWith('tulu-');
+  const tuluIsOutput = currentDir.endsWith('-tulu');
+  inputText.classList.toggle('tulu-font', useTuluFont && tuluIsInput);
+  outputText.classList.toggle('tulu-font', useTuluFont && tuluIsOutput);
+}
+
+refToggle.addEventListener('click', () => {
+  refToggle.classList.toggle('open');
+  refGrid.classList.toggle('show');
+});
+
+updateLabels();
+
+// Populate placeholder based on direction
+const PLACEHOLDERS = {
+  'tulu-iast': 'mr, karAX, DmfZAkAX…',
+  'iast-tulu': 'mara, dharma, namaḥ…',
+  'tulu-deva': 'Type Mallige-encoded text…',
+  'deva-tulu': 'Type Devanāgarī text…',
+  'tulu-kan':  'Type Mallige-encoded text…',
+  'kan-tulu':  'Type Kannaḍa text…',
+  'tulu-mal':  'Type Mallige-encoded text…',
+  'mal-tulu':  'Type Malayāḷam text…',
+};
+function updatePlaceholder() {
+  inputText.placeholder = PLACEHOLDERS[currentDir] || 'Type here…';
+}
+dirBtns.forEach(b => b.addEventListener('click', updatePlaceholder));
+updatePlaceholder();
+</script>
+</body>
+</html>
